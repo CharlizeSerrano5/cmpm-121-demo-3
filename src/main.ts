@@ -92,7 +92,8 @@ statusPanel.addEventListener("player-inventory-changed", () => {
     console.log('player inventory: ', playerCoins);
 })
 
-const spawnedCaches: Cache[] = [];
+let selectedCaches: Cache[] = [];
+const visitedCells: Array<Cell> = [];
 
 function spawnCollectLocation(cell: Cell) {
     const origin = playerLocation;
@@ -107,17 +108,28 @@ function spawnCollectLocation(cell: Cell) {
     // handle interactions with the cache
     rect.bindPopup(() => {
         // Each cache has a random point value, mutable by the player
-        // TODO: make it so that the coin amount will change
-        
-        const coinAmount: number = Math.floor(luck([cell.i, cell.j, "initialValue"].toString()) * 100);      
-        const cache = newCache(cell, coinAmount);
-        spawnedCaches.push(cache);
-
-        // look through all existing caches
-        // const temp = spawnedCaches.forEach((cache)=> {
-        //     cache.includes(coincell);
-        // })
-
+        // FIX: make it so that the coin amount will change REFACTOR
+        let coinAmount: number;
+        const previousCell = visitedCells.find((temp) => temp.i == cell.i && temp.j == cell.j);
+        if (previousCell) {
+            console.log('has been visited');
+            // if we can find the cell inside of visited cells
+            const targetCache = selectedCaches.find((cache) =>
+                cache.coins.some((coin) => coin.cell === cell)
+            );
+            if (targetCache) {
+                coinAmount = targetCache.coins.length;
+            }
+            // modify selectedcaches
+            selectedCaches = selectedCaches.filter((cache) => cache != targetCache);
+        } else {
+            console.log('has not been visited');
+            visitedCells.push(cell);
+            coinAmount = Math.floor(luck([cell.i, cell.j, "initialValue"].toString()) * 100);      
+            
+        }        
+        const cache = newCache(cell, coinAmount!);
+        selectedCaches.push(cache);
         // Popup
         const popupDiv = document.createElement("div");
         popupDiv.innerHTML = `
@@ -125,9 +137,11 @@ function spawnCollectLocation(cell: Cell) {
             <button id="collect">collect</button> <button id="deposit">deposit</button>`;
         
         popupDiv.addEventListener("cache-updated", () => {
+            selectedCaches.pop();
+            selectedCaches.push(cache);
             popupDiv.querySelector<HTMLSpanElement>("#value")!.innerHTML =
                 cache.coins.length.toString();
-        })
+        });
         // Clicking the button decrements the cache's value and increments the player's points
         popupDiv
         .querySelector<HTMLButtonElement>("#collect")!
@@ -152,7 +166,7 @@ function spawnCollectLocation(cell: Cell) {
         });
         
         return popupDiv;
-    })
+    });
 }
 
 function newCache(cell: Cell, coinAmount: number) {
