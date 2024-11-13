@@ -75,15 +75,15 @@ playerMarker.bindTooltip("You are here.");
 playerMarker.addTo(map);
 
 // create a player inventory
-let playerPoints = 0;
-let playerCoins: Array<Coin> = [];
+// let playerPoints = 0;
+const playerCoins: Array<Coin> = [];
 const statusPanel = document.querySelector<HTMLDivElement>("#statusPanel")!; // element `statusPanel` is defined in index.html
 statusPanel.innerHTML = "No points yet...";
 
 
 // Events to perhaps dispatch and handle: cache-updated, player-moved, player-inventory-changed.
 const cacheUpdated = new CustomEvent("cache-updated");
-const playerMoved = new CustomEvent("player-moved");
+// const playerMoved = new CustomEvent("player-moved");
 const inventoryChange = new CustomEvent("player-inventory-changed");
 
 statusPanel.addEventListener("player-inventory-changed", () => {
@@ -93,6 +93,7 @@ statusPanel.addEventListener("player-inventory-changed", () => {
 })
 
 const spawnedCaches: Cache[] = [];
+
 function spawnCollectLocation(cell: Cell) {
     const origin = playerLocation;
     const bounds = leaflet.latLngBounds([
@@ -106,10 +107,17 @@ function spawnCollectLocation(cell: Cell) {
     // handle interactions with the cache
     rect.bindPopup(() => {
         // Each cache has a random point value, mutable by the player
-        let coinAmount: number;
-        coinAmount = Math.floor(luck([cell.i, cell.j, "initialValue"].toString()) * 100);      
+        // TODO: make it so that the coin amount will change
+        
+        const coinAmount: number = Math.floor(luck([cell.i, cell.j, "initialValue"].toString()) * 100);      
         const cache = newCache(cell, coinAmount);
         spawnedCaches.push(cache);
+
+        // look through all existing caches
+        // const temp = spawnedCaches.forEach((cache)=> {
+        //     cache.includes(coincell);
+        // })
+
         // Popup
         const popupDiv = document.createElement("div");
         popupDiv.innerHTML = `
@@ -124,7 +132,6 @@ function spawnCollectLocation(cell: Cell) {
         popupDiv
         .querySelector<HTMLButtonElement>("#collect")!
         .addEventListener("click", () => {
-            // coinAmount--;
             // remove a coin from cache
             const cacheCoin = cache.coins.pop();
             popupDiv.dispatchEvent(cacheUpdated);
@@ -136,7 +143,6 @@ function spawnCollectLocation(cell: Cell) {
         popupDiv
         .querySelector<HTMLButtonElement>("#deposit")!
         .addEventListener("click", () => {
-            coinAmount++; // remove
             const playerCoin = playerCoins.pop();
             if (playerCoin) {
                 const coin = deposit(playerCoin, cell);
@@ -159,6 +165,7 @@ function newCache(cell: Cell, coinAmount: number) {
 }
 
 function collect(coin: Coin, cell: Cell) {
+    coin.cell = cell;
     playerCoins.push(coin);
     statusPanel.dispatchEvent(inventoryChange);
 }
