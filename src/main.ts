@@ -31,7 +31,6 @@ const GAMEPLAY_ZOOM_LEVEL = 19;
 const TILE_DEGREES = 1e-4;
 const VISIBILITY_RADIUS = 8; //previously neighborhood_size
 const CACHE_SPAWN_PROBABILITY = 0.1;
-
 interface Cell{
     i: number;
     j: number;
@@ -101,7 +100,6 @@ function spawnCollectLocation(cell: Cell) {
             origin.lng + (cell.j + 1) * TILE_DEGREES,
         ],
     ]);
-
     // Add rectangle for cache
     const rect = leaflet.rectangle(bounds);
     rect.addTo(map);
@@ -128,7 +126,7 @@ function spawnCollectLocation(cell: Cell) {
             visitedCells.push(cell);
             coinAmount = Math.floor(luck([cell.i, cell.j, "initialValue"].toString()) * 100,
             );
-        }
+    }
         const cache = newCache(cell, coinAmount!);
         selectedCaches.push(cache);
         // Popup
@@ -136,7 +134,6 @@ function spawnCollectLocation(cell: Cell) {
         popupDiv.innerHTML = `
             <div>There is a cache here at "${cell.i},${cell.j}". It has value <span id="value">${cache.coins.length}</span>.</div>
             <button id="collect">collect</button> <button id="deposit">deposit</button>`;
-        
         popupDiv.addEventListener("cache-updated", () => {
             selectedCaches.pop();
             selectedCaches.push(cache);
@@ -154,7 +151,6 @@ function spawnCollectLocation(cell: Cell) {
                 collect(cacheCoin, cell);
             }
         });
-
         popupDiv
         .querySelector<HTMLButtonElement>("#deposit")!
         .addEventListener("click", () => {
@@ -165,7 +161,6 @@ function spawnCollectLocation(cell: Cell) {
                 popupDiv.dispatchEvent(cacheUpdated);
             }
         });
-        
         return popupDiv;
     });
 }
