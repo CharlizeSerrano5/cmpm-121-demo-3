@@ -130,8 +130,8 @@ function spawnCollectLocation(cell: Cell) {
             console.log("has not been visited");
             visitedCells.push(cell);
             coinAmount = Math.floor(luck([cell.i, cell.j, "initialValue"].toString()) * 100,
-            );      
-        }        
+            );
+        }
         const cache = newCache(cell, coinAmount!);
         selectedCaches.push(cache);
         // Popup
