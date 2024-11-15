@@ -99,9 +99,9 @@ function spawnCollectLocation(cell: Cell) {
     const origin = playerLocation;
     const bounds = leaflet.latLngBounds([
         [origin.lat + cell.i * TILE_DEGREES, origin.lng + cell.j * TILE_DEGREES],
-        [
+    [
             origin.lat + (cell.i + 1) * TILE_DEGREES,
-            origin.lng + (cell.j + 1) * TILE_DEGREES
+            origin.lng + (cell.j + 1) * TILE_DEGREES,
         ],
     ]);
 
@@ -123,7 +123,7 @@ function spawnCollectLocation(cell: Cell) {
             );
             if (targetCache) {
                 coinAmount = targetCache.coins.length;
-            }
+        }
             // modify selectedcaches
             selectedCaches = selectedCaches.filter((cache) => cache != targetCache);
         } else {
@@ -206,7 +206,7 @@ for (let i = -VISIBILITY_RADIUS; i < VISIBILITY_RADIUS; i++) {
         spawnCollectLocation(newCell);
       }
     }
-  }
+}
 
 
 
