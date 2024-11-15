@@ -1,4 +1,3 @@
-
 // const app = document.querySelector<HTMLDivElement>("#app")!;
 
 // const button = document.createElement("button");
@@ -68,7 +67,6 @@ leaflet
   })
   .addTo(map);
 
-
 // Add a marker to represent the player
 const playerMarker = leaflet.marker(playerLocation);
 playerMarker.bindTooltip("You are here.");
@@ -79,7 +77,6 @@ playerMarker.addTo(map);
 const playerCoins: Array<Coin> = [];
 const statusPanel = document.querySelector<HTMLDivElement>("#statusPanel")!; // element `statusPanel` is defined in index.html
 statusPanel.innerHTML = "No points yet...";
-
 
 // Events to perhaps dispatch and handle: cache-updated, player-moved, player-inventory-changed.
 const cacheUpdated = new CustomEvent("cache-updated");
@@ -195,7 +192,6 @@ function deposit(coin: Coin, cell: Cell) {
     return coin;
 }
 
-
 // Look around the player's neighborhood for caches to spawn
 // TODO: refactor
 for (let i = -VISIBILITY_RADIUS; i < VISIBILITY_RADIUS; i++) {
@@ -207,10 +203,6 @@ for (let i = -VISIBILITY_RADIUS; i < VISIBILITY_RADIUS; i++) {
       }
     }
 }
-
-
-
-
 
 // NOTE: in personal code might want to clear out all old caches
 // and then respawn all the ones around where the player is
