@@ -31,34 +31,34 @@ const GAMEPLAY_ZOOM_LEVEL = 19;
 const TILE_DEGREES = 1e-4;
 const VISIBILITY_RADIUS = 8; //previously neighborhood_size
 const CACHE_SPAWN_PROBABILITY = 0.1;
-interface Cell{
-    i: number;
-    j: number;
+interface Cell {
+  i: number;
+  j: number;
 }
 
 interface Cache {
-    coins: Coin[];
+  coins: Coin[];
 }
 
 interface Coin {
-    cell: Cell;
-    serial:number;
-    // serial is the unique identity of each coin 
+  cell: Cell;
+  serial: number;
+  // serial is the unique identity of each coin
 }
 
 // Create the map (element with id "map" is defined in index.html)
 const map = leaflet.map(document.getElementById("map")!, {
-    center: OAKES_CLASSROOM,
-    zoom: GAMEPLAY_ZOOM_LEVEL,
-    minZoom: GAMEPLAY_ZOOM_LEVEL,
-    maxZoom: GAMEPLAY_ZOOM_LEVEL,
-    zoomControl: false,
-    scrollWheelZoom: false,
-  });
+  center: OAKES_CLASSROOM,
+  zoom: GAMEPLAY_ZOOM_LEVEL,
+  minZoom: GAMEPLAY_ZOOM_LEVEL,
+  maxZoom: GAMEPLAY_ZOOM_LEVEL,
+  zoomControl: false,
+  scrollWheelZoom: false,
+});
 
 // Populate the map with a background tile layer
 leaflet
-  .tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { 
+  .tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
     // NOTE: map URL can be changed to nicer looking maps
     maxZoom: 19,
     attribution:
@@ -83,120 +83,121 @@ const cacheUpdated = new CustomEvent("cache-updated");
 const inventoryChange = new CustomEvent("player-inventory-changed");
 
 statusPanel.addEventListener("player-inventory-changed", () => {
-    // when called change the status panel
-    statusPanel.innerHTML = `${playerCoins.length} points accumulated`;
-    console.log("player inventory: ", playerCoins);
+  // when called change the status panel
+  statusPanel.innerHTML = `${playerCoins.length} points accumulated`;
+  console.log("player inventory: ", playerCoins);
 });
 
 let selectedCaches: Cache[] = [];
 const visitedCells: Array<Cell> = [];
 
 function spawnCollectLocation(cell: Cell) {
-    const origin = playerLocation;
-    const bounds = leaflet.latLngBounds([
-        [origin.lat + cell.i * TILE_DEGREES, origin.lng + cell.j * TILE_DEGREES],
+  const origin = playerLocation;
+  const bounds = leaflet.latLngBounds([
+    [origin.lat + cell.i * TILE_DEGREES, origin.lng + cell.j * TILE_DEGREES],
     [
-            origin.lat + (cell.i + 1) * TILE_DEGREES,
-            origin.lng + (cell.j + 1) * TILE_DEGREES,
-        ],
-    ]);
-    // Add rectangle for cache
-    const rect = leaflet.rectangle(bounds);
-    rect.addTo(map);
-    // handle interactions with the cache
-    rect.bindPopup(() => {
-        // Each cache has a random point value, mutable by the player
-        // FIX: make it so that the coin amount will change REFACTOR
-        let coinAmount: number;
-        const previousCell = visitedCells.find((temp) => temp.i == cell.i && temp.j == cell.j
+      origin.lat + (cell.i + 1) * TILE_DEGREES,
+      origin.lng + (cell.j + 1) * TILE_DEGREES,
+    ],
+  ]);
+  // Add rectangle for cache
+  const rect = leaflet.rectangle(bounds);
+  rect.addTo(map);
+  // handle interactions with the cache
+  rect.bindPopup(() => {
+    // Each cache has a random point value, mutable by the player
+    // FIX: make it so that the coin amount will change REFACTOR
+    let coinAmount: number;
+    const previousCell = visitedCells.find((temp) =>
+      temp.i == cell.i && temp.j == cell.j
     );
-        if (previousCell) {
-            console.log("has been visited");
-            // if we can find the cell inside of visited cells
-            const targetCache = selectedCaches.find((cache) =>
-                cache.coins.some((coin) => coin.cell === cell)
-            );
-            if (targetCache) {
-                coinAmount = targetCache.coins.length;
-        }
-            // modify selectedcaches
-            selectedCaches = selectedCaches.filter((cache) => cache != targetCache);
-        } else {
-            console.log("has not been visited");
-            visitedCells.push(cell);
-            coinAmount = Math.floor(luck([cell.i, cell.j, "initialValue"].toString()) * 100,
-            );
+    if (previousCell) {
+      console.log("has been visited");
+      // if we can find the cell inside of visited cells
+      const targetCache = selectedCaches.find((cache) =>
+        cache.coins.some((coin) => coin.cell === cell)
+      );
+      if (targetCache) {
+        coinAmount = targetCache.coins.length;
+      }
+      // modify selectedcaches
+      selectedCaches = selectedCaches.filter((cache) => cache != targetCache);
+    } else {
+      console.log("has not been visited");
+      visitedCells.push(cell);
+      coinAmount = Math.floor(
+        luck([cell.i, cell.j, "initialValue"].toString()) * 100,
+      );
     }
-        const cache = newCache(cell, coinAmount!);
-        selectedCaches.push(cache);
-        // Popup
-        const popupDiv = document.createElement("div");
-        popupDiv.innerHTML = `
-            <div>There is a cache here at "${cell.i},${cell.j}". It has value <span id="value">${cache.coins.length}</span>.</div>
-            <button id="collect">collect</button> <button id="deposit">deposit</button>`;
-        popupDiv.addEventListener("cache-updated", () => {
-            selectedCaches.pop();
-            selectedCaches.push(cache);
-            popupDiv.querySelector<HTMLSpanElement>("#value")!.innerHTML =
-                cache.coins.length.toString();
-        });
-        // Clicking the button decrements the cache's value and increments the player's points
-        popupDiv
-        .querySelector<HTMLButtonElement>("#collect")!
-        .addEventListener("click", () => {
-            // remove a coin from cache
-            const cacheCoin = cache.coins.pop();
-            popupDiv.dispatchEvent(cacheUpdated);
-            if (cacheCoin) {
-                collect(cacheCoin, cell);
-            }
-        });
-        popupDiv
-        .querySelector<HTMLButtonElement>("#deposit")!
-        .addEventListener("click", () => {
-            const playerCoin = playerCoins.pop();
-            if (playerCoin) {
-                const coin = deposit(playerCoin, cell);
-                cache.coins.push(coin); 
-                popupDiv.dispatchEvent(cacheUpdated);
-            }
-        });
-        return popupDiv;
+    const cache = newCache(cell, coinAmount!);
+    selectedCaches.push(cache);
+    // Popup
+    const popupDiv = document.createElement("div");
+    popupDiv.innerHTML = `
+        <div>There is a cache here at "${cell.i},${cell.j}". It has value <span id="value">${cache.coins.length}</span>.</div>
+        <button id="collect">collect</button> <button id="deposit">deposit</button>`;
+    popupDiv.addEventListener("cache-updated", () => {
+      selectedCaches.pop();
+      selectedCaches.push(cache);
+      popupDiv.querySelector<HTMLSpanElement>("#value")!.innerHTML = cache.coins
+        .length.toString();
     });
+    // Clicking the button decrements the cache's value and increments the player's points
+    popupDiv
+      .querySelector<HTMLButtonElement>("#collect")!
+      .addEventListener("click", () => {
+        // remove a coin from cache
+        const cacheCoin = cache.coins.pop();
+        popupDiv.dispatchEvent(cacheUpdated);
+        if (cacheCoin) {
+          collect(cacheCoin, cell);
+        }
+      });
+    popupDiv
+      .querySelector<HTMLButtonElement>("#deposit")!
+      .addEventListener("click", () => {
+        const playerCoin = playerCoins.pop();
+        if (playerCoin) {
+          const coin = deposit(playerCoin, cell);
+          cache.coins.push(coin);
+          popupDiv.dispatchEvent(cacheUpdated);
+        }
+      });
+    return popupDiv;
+  });
 }
 
 function newCache(cell: Cell, coinAmount: number) {
-    const cache: Cache = {coins: []};
-    for (let i = 0; i < coinAmount; i++) {
-        const newCoin: Coin = {cell: cell, serial: 0};
-        cache.coins.push(newCoin);
-    }
-    return cache;
+  const cache: Cache = { coins: [] };
+  for (let i = 0; i < coinAmount; i++) {
+    const newCoin: Coin = { cell: cell, serial: 0 };
+    cache.coins.push(newCoin);
+  }
+  return cache;
 }
 
 function collect(coin: Coin, cell: Cell) {
-    coin.cell = cell;
-    playerCoins.push(coin);
-    statusPanel.dispatchEvent(inventoryChange);
+  coin.cell = cell;
+  playerCoins.push(coin);
+  statusPanel.dispatchEvent(inventoryChange);
 }
 
 function deposit(coin: Coin, cell: Cell) {
-    coin.cell = cell;
-    statusPanel.dispatchEvent(inventoryChange);
-
-    return coin;
+  coin.cell = cell;
+  statusPanel.dispatchEvent(inventoryChange);
+  return coin;
 }
 
 // Look around the player's neighborhood for caches to spawn
 // TODO: refactor
 for (let i = -VISIBILITY_RADIUS; i < VISIBILITY_RADIUS; i++) {
-    for (let j = -VISIBILITY_RADIUS; j < VISIBILITY_RADIUS; j++) {
-      // If location i,j is lucky enough, spawn a cache!
-      if (luck([i, j].toString()) < CACHE_SPAWN_PROBABILITY) {
-        const newCell: Cell = {i: i, j: j};
-        spawnCollectLocation(newCell);
-      }
+  for (let j = -VISIBILITY_RADIUS; j < VISIBILITY_RADIUS; j++) {
+    // If location i,j is lucky enough, spawn a cache!
+    if (luck([i, j].toString()) < CACHE_SPAWN_PROBABILITY) {
+      const newCell: Cell = { i: i, j: j };
+      spawnCollectLocation(newCell);
     }
+  }
 }
 
 // NOTE: in personal code might want to clear out all old caches
