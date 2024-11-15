@@ -34,17 +34,17 @@ const VISIBILITY_RADIUS = 8; //previously neighborhood_size
 const CACHE_SPAWN_PROBABILITY = 0.1;
 
 interface Cell{
-    i: number,
-    j: number,
+    i: number;
+    j: number;
 }
 
 interface Cache {
-    coins: Coin[],
+    coins: Coin[];
 }
 
 interface Coin {
-    cell: Cell,
-    serial:number,
+    cell: Cell;
+    serial:number;
     // serial is the unique identity of each coin 
 }
 
@@ -89,8 +89,8 @@ const inventoryChange = new CustomEvent("player-inventory-changed");
 statusPanel.addEventListener("player-inventory-changed", () => {
     // when called change the status panel
     statusPanel.innerHTML = `${playerCoins.length} points accumulated`;
-    console.log('player inventory: ', playerCoins);
-})
+    console.log("player inventory: ", playerCoins);
+});
 
 let selectedCaches: Cache[] = [];
 const visitedCells: Array<Cell> = [];
@@ -99,7 +99,10 @@ function spawnCollectLocation(cell: Cell) {
     const origin = playerLocation;
     const bounds = leaflet.latLngBounds([
         [origin.lat + cell.i * TILE_DEGREES, origin.lng + cell.j * TILE_DEGREES],
-        [origin.lat + (cell.i + 1) * TILE_DEGREES, origin.lng + (cell.j + 1) * TILE_DEGREES],
+        [
+            origin.lat + (cell.i + 1) * TILE_DEGREES,
+            origin.lng + (cell.j + 1) * TILE_DEGREES
+        ],
     ]);
 
     // Add rectangle for cache
@@ -110,9 +113,10 @@ function spawnCollectLocation(cell: Cell) {
         // Each cache has a random point value, mutable by the player
         // FIX: make it so that the coin amount will change REFACTOR
         let coinAmount: number;
-        const previousCell = visitedCells.find((temp) => temp.i == cell.i && temp.j == cell.j);
+        const previousCell = visitedCells.find((temp) => temp.i == cell.i && temp.j == cell.j
+    );
         if (previousCell) {
-            console.log('has been visited');
+            console.log("has been visited");
             // if we can find the cell inside of visited cells
             const targetCache = selectedCaches.find((cache) =>
                 cache.coins.some((coin) => coin.cell === cell)
@@ -123,10 +127,10 @@ function spawnCollectLocation(cell: Cell) {
             // modify selectedcaches
             selectedCaches = selectedCaches.filter((cache) => cache != targetCache);
         } else {
-            console.log('has not been visited');
+            console.log("has not been visited");
             visitedCells.push(cell);
-            coinAmount = Math.floor(luck([cell.i, cell.j, "initialValue"].toString()) * 100);      
-            
+            coinAmount = Math.floor(luck([cell.i, cell.j, "initialValue"].toString()) * 100,
+            );      
         }        
         const cache = newCache(cell, coinAmount!);
         selectedCaches.push(cache);
