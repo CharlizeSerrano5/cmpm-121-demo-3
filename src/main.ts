@@ -1,15 +1,3 @@
-// const app = document.querySelector<HTMLDivElement>("#app")!;
-
-// const button = document.createElement("button");
-// button.innerHTML = "CLICK";
-
-// button.addEventListener("click", ()=>{
-//     alert("you clicked the button!");
-// })
-
-// app.append(button);
-//-------------------PREVIOUS CODE------------------------
-
 // @deno-types="npm:@types/leaflet@^1.9.14"
 import leaflet from "leaflet";
 
@@ -22,6 +10,8 @@ import "./leafletWorkaround.ts";
 
 // Deterministic random number generator
 import luck from "./luck.ts";
+
+import { Board } from "./board.ts";
 
 // Location of our classroom (as identified on Google Maps)
 const OAKES_CLASSROOM = leaflet.latLng(36.98949379578401, -122.06277128548504);
