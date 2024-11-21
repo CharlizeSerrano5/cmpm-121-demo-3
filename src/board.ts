@@ -21,21 +21,25 @@ export class Board {
     private getCanonicalCell(cell: Cell): Cell {
         const { i, j } = cell;
         const key = [i, j].toString();
+        
+        console.log("key: ", key);
         // ...
+        if (!this.knownCells.get(key)) {
+            // set new knownCells if no key is found
+            this.knownCells.set(key, cell);
+        } else {
+            console.log('is known');
+        }
         return this.knownCells.get(key)!;
     }
 
     getCellForPoint(point: leaflet.LatLng): Cell {
         // pass to other function
-        console.log('point: ', point);
-        return this.getCanonicalCell({
-            i: point.lat,
-            j: point.lang
-        });
+        const newCell: Cell = {i: point.lat, j: point.lng}
+        return this.getCanonicalCell(newCell);
     }
 
     getCellBounds(cell: Cell): leaflet.LatLngBounds {
-    	// ...
         // TODO: check if correct
         return leaflet.latLngBounds([
             [cell.i, cell.j],
@@ -48,10 +52,23 @@ export class Board {
 
     getCellsNearPoint(point: leaflet.LatLng): Cell[] {
         const resultCells: Cell[] = [];
+        // TODO: refactor
         const originCell = this.getCellForPoint(point);
-        // ...
-        // push the cells onto the result cells
-        console.log('originCell: ', originCell);
+        const northEast: Cell = this.getCellBounds(originCell)._northEast;
+        const southWest = this.getCellBounds(originCell)._southWest;
+        const findCells: Cell[] = [];
+        findCells.push(northEast);
+        findCells.push(southWest);
+        console.log('findCells: ', findCells);
+        for (const cell of findCells) {
+            const foundCell = this.getCellForPoint(cell);
+            console.log('returned: ', foundCell);
+            if (foundCell) {
+                resultCells.push(foundCell);
+            }
+            
+        }
+        console.log('resultCells: ', resultCells);
         return resultCells;
     }
 }

@@ -61,6 +61,9 @@ const playerMarker = leaflet.marker(playerLocation);
 playerMarker.bindTooltip("You are here.");
 playerMarker.addTo(map);
 
+// Create Board
+const board = new Board(1, VISIBILITY_RADIUS);
+
 // create a player inventory
 // let playerPoints = 0;
 const playerCoins: Array<Coin> = [];
@@ -81,8 +84,12 @@ statusPanel.addEventListener("player-inventory-changed", () => {
 let selectedCaches: Cache[] = [];
 const visitedCells: Array<Cell> = [];
 
+const origin = playerLocation;
+board.getCellsNearPoint(origin);
+  
 function spawnCollectLocation(cell: Cell) {
-  const origin = playerLocation;
+  // board.getCellsNearPoint(origin);
+
   const bounds = leaflet.latLngBounds([
     [origin.lat + cell.i * TILE_DEGREES, origin.lng + cell.j * TILE_DEGREES],
     [
@@ -160,7 +167,7 @@ function spawnCollectLocation(cell: Cell) {
 function newCache(cell: Cell, coinAmount: number) {
   const cache: Cache = { coins: [] };
   for (let i = 0; i < coinAmount; i++) {
-    const newCoin: Coin = { cell: cell, serial: 0 };
+    const newCoin: Coin = { cell: cell, serial: i };
     cache.coins.push(newCoin);
   }
   return cache;
