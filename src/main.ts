@@ -62,7 +62,7 @@ playerMarker.bindTooltip("You are here.");
 playerMarker.addTo(map);
 
 // Create Board
-const board = new Board(1, VISIBILITY_RADIUS);
+const board = new Board(TILE_DEGREES, VISIBILITY_RADIUS);
 
 // create a player inventory
 // let playerPoints = 0;
@@ -83,20 +83,28 @@ statusPanel.addEventListener("player-inventory-changed", () => {
 
 let selectedCaches: Cache[] = [];
 const visitedCells: Array<Cell> = [];
-
 const origin = playerLocation;
-board.getCellsNearPoint(origin);
-  
+
 function spawnCollectLocation(cell: Cell) {
   // board.getCellsNearPoint(origin);
 
-  const bounds = leaflet.latLngBounds([
-    [origin.lat + cell.i * TILE_DEGREES, origin.lng + cell.j * TILE_DEGREES],
-    [
-      origin.lat + (cell.i + 1) * TILE_DEGREES,
-      origin.lng + (cell.j + 1) * TILE_DEGREES,
-    ],
-  ]);
+  // const bounds = leaflet.latLngBounds([
+  //   [origin.lat + cell.i * TILE_DEGREES, origin.lng + cell.j * TILE_DEGREES],
+  //   [
+  //     origin.lat + (cell.i + 1) * TILE_DEGREES,
+  //     origin.lng + (cell.j + 1) * TILE_DEGREES,
+  //   ],
+  // ]);
+  console.log("cell: ", cell);
+  // const bounds = leaflet.latLngBounds([
+  //   [cell.i + 1 * TILE_DEGREES, cell.j + 1 * TILE_DEGREES],
+  //   [
+  //     (cell.i + 1 * TILE_DEGREES) + 1* TILE_DEGREES,
+  //     (cell.j + 1 * TILE_DEGREES) + 1 * TILE_DEGREES,
+  //   ],
+  // ]);
+  const bounds = board.getCellBounds(cell);
+  console.log("new bounds: ", bounds);
   // Add rectangle for cache
   const rect = leaflet.rectangle(bounds);
   rect.addTo(map);
@@ -108,6 +116,7 @@ function spawnCollectLocation(cell: Cell) {
     const previousCell = visitedCells.find((temp) =>
       temp.i == cell.i && temp.j == cell.j
     );
+    // TODO: refactor
     if (previousCell) {
       console.log("has been visited");
       // if we can find the cell inside of visited cells
@@ -131,7 +140,9 @@ function spawnCollectLocation(cell: Cell) {
     // Popup
     const popupDiv = document.createElement("div");
     popupDiv.innerHTML = `
-        <div>There is a cache here at "${cell.i},${cell.j}". It has value <span id="value">${cache.coins.length}</span>.</div>
+        <div>There is a cache here at "${roundNumber(cell.i)},${
+      roundNumber(cell.j)
+    }". It has value <span id="value">${cache.coins.length}</span>.</div>
         <button id="collect">collect</button> <button id="deposit">deposit</button>`;
     popupDiv.addEventListener("cache-updated", () => {
       selectedCaches.pop();
@@ -185,13 +196,33 @@ function deposit(coin: Coin, cell: Cell) {
   return coin;
 }
 
+function roundNumber(number: number) {
+  return parseFloat(number.toFixed(4));
+}
+
 // Look around the player's neighborhood for caches to spawn
 // TODO: refactor
+const boardCells = board.getCellsNearPoint(origin);
+// while (boardCells) {
+for (const cell of boardCells) {
+  spawnCollectLocation(cell);
+}
+// const newCell: Cell = boardCells.pop();
+// console.log('newCell: ', newCell);
+// spawnCollectLocation(boardCells.pop()!);
+// }
+
+// spawnCollectLocation(origin);
+
+console.log("boardCells: ", boardCells);
 for (let i = -VISIBILITY_RADIUS; i < VISIBILITY_RADIUS; i++) {
   for (let j = -VISIBILITY_RADIUS; j < VISIBILITY_RADIUS; j++) {
     // If location i,j is lucky enough, spawn a cache!
-    if (luck([i, j].toString()) < CACHE_SPAWN_PROBABILITY) {
-      const newCell: Cell = { i: i, j: j };
+    const lat = origin.lat + (i * TILE_DEGREES);
+    const lng = origin.lng + (j * TILE_DEGREES);
+    if (luck([lat, lng].toString()) < CACHE_SPAWN_PROBABILITY) {
+      const newCell: Cell = { i: lat, j: lng };
+      console.log("newCell: ", newCell);
       spawnCollectLocation(newCell);
     }
   }
