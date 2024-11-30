@@ -1,5 +1,5 @@
 // @deno-types="npm:@types/leaflet@^1.9.14"
-import leaflet from "leaflet";
+import leaflet, { control, type LeafletEvent } from "leaflet";
 
 // Style sheets
 import "leaflet/dist/leaflet.css";
@@ -36,6 +36,32 @@ interface Coin {
   // serial is the unique identity of each coin
 }
 
+interface Momento<T> {
+  toMomento(): T;
+  fromMomento(momento: T): void;
+}
+
+class Geocache implements Momento<string> {
+  i: number;
+  j: number;
+  cell: Cell;
+  numCoins: number;
+  constructor(i: number, j: number, cell: Cell, numCoins: number) {
+    this.i = i;
+    this.j = j;
+    this.cell = cell;
+    // cell
+    this.numCoins = numCoins;
+  }
+  toMomento() {
+    return this.numCoins.toString();
+  }
+
+  fromMomento(momento: string) {
+    this.numCoins = parseInt(momento);
+  }
+}
+
 // Create the map (element with id "map" is defined in index.html)
 const map = leaflet.map(document.getElementById("map")!, {
   center: OAKES_CLASSROOM,
@@ -57,15 +83,55 @@ leaflet
   .addTo(map);
 
 // Add a marker to represent the player
-const playerMarker = leaflet.marker(playerLocation);
-playerMarker.bindTooltip("You are here.");
-playerMarker.addTo(map);
+let playerMarker: leaflet.Marker<leaflet.LatLng>;
+addMarker(playerLocation);
+
+function addMarker(location: leaflet.LatLng) {
+  if (playerMarker) {
+    playerMarker.remove();
+  }
+  playerMarker = leaflet.marker(location);
+  playerMarker.bindTooltip("You are here.");
+  playerMarker.addTo(map);
+}
 
 // Create Board
 const board = new Board(TILE_DEGREES, VISIBILITY_RADIUS);
 
-// create a player inventory
-// let playerPoints = 0;
+// Select control panel
+const controlPanel = document.querySelector<HTMLDivElement>("#controlPanel")!; // element `statusPanel` is defined in index.html
+const locationUpdated = new CustomEvent("location-updated");
+
+controlPanel
+  .querySelector<HTMLButtonElement>("#north")!
+  .addEventListener("click", () => {
+    playerLocation.lat += 1 * TILE_DEGREES;
+    controlPanel.dispatchEvent(locationUpdated);
+  });
+controlPanel
+  .querySelector<HTMLButtonElement>("#south")!
+  .addEventListener("click", () => {
+    playerLocation.lat -= 1 * TILE_DEGREES;
+    controlPanel.dispatchEvent(locationUpdated);
+  });
+controlPanel
+  .querySelector<HTMLButtonElement>("#west")!
+  .addEventListener("click", () => {
+    playerLocation.lng -= 1 * TILE_DEGREES;
+    controlPanel.dispatchEvent(locationUpdated);
+  });
+controlPanel
+  .querySelector<HTMLButtonElement>("#east")!
+  .addEventListener("click", () => {
+    playerLocation.lng += 1 * TILE_DEGREES;
+    controlPanel.dispatchEvent(locationUpdated);
+  });
+controlPanel.addEventListener("location-updated", () => {
+  addMarker(playerLocation);
+  generateCaches();
+});
+
+// Select status panel for playerInventory
 const playerCoins: Array<Coin> = [];
 const statusPanel = document.querySelector<HTMLDivElement>("#statusPanel")!; // element `statusPanel` is defined in index.html
 statusPanel.innerHTML = "No points yet...";
@@ -83,28 +149,9 @@ statusPanel.addEventListener("player-inventory-changed", () => {
 
 let selectedCaches: Cache[] = [];
 const visitedCells: Array<Cell> = [];
-const origin = playerLocation;
 
 function spawnCollectLocation(cell: Cell) {
-  // board.getCellsNearPoint(origin);
-
-  // const bounds = leaflet.latLngBounds([
-  //   [origin.lat + cell.i * TILE_DEGREES, origin.lng + cell.j * TILE_DEGREES],
-  //   [
-  //     origin.lat + (cell.i + 1) * TILE_DEGREES,
-  //     origin.lng + (cell.j + 1) * TILE_DEGREES,
-  //   ],
-  // ]);
-  console.log("cell: ", cell);
-  // const bounds = leaflet.latLngBounds([
-  //   [cell.i + 1 * TILE_DEGREES, cell.j + 1 * TILE_DEGREES],
-  //   [
-  //     (cell.i + 1 * TILE_DEGREES) + 1* TILE_DEGREES,
-  //     (cell.j + 1 * TILE_DEGREES) + 1 * TILE_DEGREES,
-  //   ],
-  // ]);
   const bounds = board.getCellBounds(cell);
-  console.log("new bounds: ", bounds);
   // Add rectangle for cache
   const rect = leaflet.rectangle(bounds);
   rect.addTo(map);
@@ -137,6 +184,8 @@ function spawnCollectLocation(cell: Cell) {
     }
     const cache = newCache(cell, coinAmount!);
     selectedCaches.push(cache);
+    console.log("cache: ", cache);
+
     // Popup
     const popupDiv = document.createElement("div");
     popupDiv.innerHTML = `
@@ -174,6 +223,7 @@ function spawnCollectLocation(cell: Cell) {
     return popupDiv;
   });
 }
+board.getCellsNearPoint(playerLocation);
 
 function newCache(cell: Cell, coinAmount: number) {
   const cache: Cache = { coins: [] };
@@ -197,36 +247,30 @@ function deposit(coin: Coin, cell: Cell) {
 }
 
 function roundNumber(number: number) {
+  // https://www.geeksforgeeks.org/how-
+  // to-parse-float-with-two-decimal-places-in-javascript/
   return parseFloat(number.toFixed(4));
 }
 
 // Look around the player's neighborhood for caches to spawn
 // TODO: refactor
-const boardCells = board.getCellsNearPoint(origin);
-// while (boardCells) {
-for (const cell of boardCells) {
-  spawnCollectLocation(cell);
-}
-// const newCell: Cell = boardCells.pop();
-// console.log('newCell: ', newCell);
-// spawnCollectLocation(boardCells.pop()!);
-// }
 
-// spawnCollectLocation(origin);
-
-console.log("boardCells: ", boardCells);
-for (let i = -VISIBILITY_RADIUS; i < VISIBILITY_RADIUS; i++) {
-  for (let j = -VISIBILITY_RADIUS; j < VISIBILITY_RADIUS; j++) {
-    // If location i,j is lucky enough, spawn a cache!
-    const lat = origin.lat + (i * TILE_DEGREES);
-    const lng = origin.lng + (j * TILE_DEGREES);
-    if (luck([lat, lng].toString()) < CACHE_SPAWN_PROBABILITY) {
-      const newCell: Cell = { i: lat, j: lng };
-      console.log("newCell: ", newCell);
-      spawnCollectLocation(newCell);
+function generateCaches() {
+  // FIX
+  for (let i = -VISIBILITY_RADIUS; i < VISIBILITY_RADIUS; i++) {
+    for (let j = -VISIBILITY_RADIUS; j < VISIBILITY_RADIUS; j++) {
+      const lat = playerLocation.lat + (i * TILE_DEGREES);
+      const lng = playerLocation.lng + (j * TILE_DEGREES);
+      if (luck([i, j].toString()) < CACHE_SPAWN_PROBABILITY) {
+        const newCell: Cell = { i: lat, j: lng };
+        // console.log("newCell: ", newCell);
+        spawnCollectLocation(newCell);
+      }
     }
   }
 }
+
+generateCaches();
 
 // NOTE: in personal code might want to clear out all old caches
 // and then respawn all the ones around where the player is
