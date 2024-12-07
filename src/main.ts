@@ -1,5 +1,5 @@
 // @deno-types="npm:@types/leaflet@^1.9.14"
-import leaflet, { control, latLng, type LeafletEvent } from "leaflet";
+import leaflet from "leaflet";
 
 // Style sheets
 import "leaflet/dist/leaflet.css";
@@ -57,21 +57,21 @@ class Coin implements Coin {
   }
 }
 
-class Geocache implements Momento<string> {
-  cell: Cell;
-  numCoins: number;
-  constructor(cell: Cell, numCoins: number) {
-    this.cell = cell;
-    this.numCoins = numCoins;
-  }
-  toMomento() {
-    return this.numCoins.toString();
-  }
+// class Geocache implements Momento<string> {
+//   cell: Cell;
+//   numCoins: number;
+//   constructor(cell: Cell, numCoins: number) {
+//     this.cell = cell;
+//     this.numCoins = numCoins;
+//   }
+//   toMomento() {
+//     return this.numCoins.toString();
+//   }
 
-  fromMomento(momento: string) {
-    this.numCoins = parseInt(momento);
-  }
-}
+//   fromMomento(momento: string) {
+//     this.numCoins = parseInt(momento);
+//   }
+// }
 
 // const geocacheA = new Geocache();
 // geocacheA.numCoins = 100;
@@ -165,8 +165,8 @@ statusPanel.addEventListener("player-inventory-changed", () => {
   console.log("player inventory: ", playerCoins);
 });
 
-let selectedCaches: Cache[] = [];
-const visitedCells: Array<Cell> = [];
+const selectedCaches: Cache[] = [];
+// const visitedCells: Array<Cell> = [];
 
 function spawnCollectLocation(cell: Cell) {
   // when someone tries to spawn a cell we check if that cell exists
@@ -175,8 +175,7 @@ function spawnCollectLocation(cell: Cell) {
   rect.addTo(map);
   // handle interactions with the cache
   rect.bindPopup(() => {
-    let coinAmount: number;
-    coinAmount = Math.floor(
+    const coinAmount: number = Math.floor(
       luck([cell.i, cell.j, "initialValue"].toString()) * 100,
     );
     const cache = newCache(cell, coinAmount!);
