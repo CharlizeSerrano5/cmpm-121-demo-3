@@ -19,9 +19,10 @@ export class Board {
   private getCanonicalCell(cell: Cell): Cell {
     const { i, j } = cell;
     const key = [i, j].toString();
-    // ...
-    if (!this.knownCells.get(key)) {
-      // set new knownCells if no key is found
+    const checkCell = this.knownCells.get(key);
+    console.log("knowncells: ", this.knownCells);
+    console.log("check: ", checkCell);
+    if (!this.knownCells.has(key)) {
       this.knownCells.set(key, cell);
     }
     return this.knownCells.get(key)!;
@@ -47,20 +48,26 @@ export class Board {
     const resultCells: Cell[] = [];
     // TODO: refactor
     const originCell = this.getCellForPoint(point);
-    const northEast: Cell = this.getCellBounds(originCell)._northEast;
-    const southWest = this.getCellBounds(originCell)._southWest;
-    const findCells: Cell[] = [];
-    findCells.push(northEast);
-    findCells.push(southWest);
-    console.log("findCells: ", findCells);
-    for (const cell of findCells) {
-      const foundCell = this.getCellForPoint(cell);
-      console.log("returned: ", foundCell);
-      if (foundCell) {
-        resultCells.push(foundCell);
+    const radius = this.tileVisibilityRadius;
+    if (originCell) {
+      for (let i = -radius; i < radius; i++) {
+        for (let j = -radius; j < radius; j++) {
+          // visit every cell in radius of the origin cell
+          const newPoint = {
+            lat: point.lat + (i * this.tileWidth),
+            lng: point.lng + (j * this.tileWidth),
+          };
+          const check = this.getCellForPoint(newPoint);
+          if (check) {
+            resultCells.push(check);
+          }
+        }
       }
     }
-    console.log("resultCells: ", resultCells);
     return resultCells;
+  }
+
+  getMap() {
+    console.log(this.knownCells);
   }
 }

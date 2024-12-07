@@ -1,5 +1,5 @@
 // @deno-types="npm:@types/leaflet@^1.9.14"
-import leaflet, { control, type LeafletEvent } from "leaflet";
+import leaflet, { control, latLng, type LeafletEvent } from "leaflet";
 
 // Style sheets
 import "leaflet/dist/leaflet.css";
@@ -41,16 +41,27 @@ interface Momento<T> {
   fromMomento(momento: T): void;
 }
 
+class Coin implements Coin {
+  cell: Cell;
+  serial: number;
+  constructor(cell: Cell, serial: number) {
+    this.cell = cell;
+    this.serial = serial;
+  }
+  representIdentity() {
+    return `${this.cell.i}: ${this.cell.j}#${this.serial}`;
+  }
+
+  changeLocation(cell: Cell) {
+    this.cell = cell;
+  }
+}
+
 class Geocache implements Momento<string> {
-  i: number;
-  j: number;
   cell: Cell;
   numCoins: number;
-  constructor(i: number, j: number, cell: Cell, numCoins: number) {
-    this.i = i;
-    this.j = j;
+  constructor(cell: Cell, numCoins: number) {
     this.cell = cell;
-    // cell
     this.numCoins = numCoins;
   }
   toMomento() {
@@ -61,6 +72,13 @@ class Geocache implements Momento<string> {
     this.numCoins = parseInt(momento);
   }
 }
+
+// const geocacheA = new Geocache();
+// geocacheA.numCoins = 100;
+// const momento = geocacheA.toMomento();
+// const geocacheB = new Geocache();
+// geocacheB.fromMomento(momento);
+// console.assert(geocacheA.numCoins == geocacheB.numCoins);
 
 // Create the map (element with id "map" is defined in index.html)
 const map = leaflet.map(document.getElementById("map")!, {
@@ -151,41 +169,19 @@ let selectedCaches: Cache[] = [];
 const visitedCells: Array<Cell> = [];
 
 function spawnCollectLocation(cell: Cell) {
+  // when someone tries to spawn a cell we check if that cell exists
   const bounds = board.getCellBounds(cell);
-  // Add rectangle for cache
   const rect = leaflet.rectangle(bounds);
   rect.addTo(map);
   // handle interactions with the cache
   rect.bindPopup(() => {
-    // Each cache has a random point value, mutable by the player
-    // FIX: make it so that the coin amount will change REFACTOR
     let coinAmount: number;
-    const previousCell = visitedCells.find((temp) =>
-      temp.i == cell.i && temp.j == cell.j
+    coinAmount = Math.floor(
+      luck([cell.i, cell.j, "initialValue"].toString()) * 100,
     );
-    // TODO: refactor
-    if (previousCell) {
-      console.log("has been visited");
-      // if we can find the cell inside of visited cells
-      const targetCache = selectedCaches.find((cache) =>
-        cache.coins.some((coin) => coin.cell === cell)
-      );
-      if (targetCache) {
-        coinAmount = targetCache.coins.length;
-      }
-      // modify selectedcaches
-      selectedCaches = selectedCaches.filter((cache) => cache != targetCache);
-    } else {
-      console.log("has not been visited");
-      visitedCells.push(cell);
-      coinAmount = Math.floor(
-        luck([cell.i, cell.j, "initialValue"].toString()) * 100,
-      );
-    }
     const cache = newCache(cell, coinAmount!);
     selectedCaches.push(cache);
     console.log("cache: ", cache);
-
     // Popup
     const popupDiv = document.createElement("div");
     popupDiv.innerHTML = `
@@ -223,12 +219,14 @@ function spawnCollectLocation(cell: Cell) {
     return popupDiv;
   });
 }
-board.getCellsNearPoint(playerLocation);
 
+board.getCellsNearPoint(playerLocation);
+board.getMap();
 function newCache(cell: Cell, coinAmount: number) {
   const cache: Cache = { coins: [] };
   for (let i = 0; i < coinAmount; i++) {
-    const newCoin: Coin = { cell: cell, serial: i };
+    const newCoin = new Coin(cell, i);
+    // const newCoin: Coin = { cell: cell, serial: i };
     cache.coins.push(newCoin);
   }
   return cache;
@@ -246,31 +244,42 @@ function deposit(coin: Coin, cell: Cell) {
   return coin;
 }
 
-function roundNumber(number: number) {
-  // https://www.geeksforgeeks.org/how-
-  // to-parse-float-with-two-decimal-places-in-javascript/
-  return parseFloat(number.toFixed(4));
-}
-
 // Look around the player's neighborhood for caches to spawn
 // TODO: refactor
 
 function generateCaches() {
-  // FIX
+  // TODO: will now need to move the viewing radius to ensure
+  // we have no dupes
+  const viewMap = board.getCellsNearPoint(playerLocation);
+  console.log("viewmap: ", viewMap);
   for (let i = -VISIBILITY_RADIUS; i < VISIBILITY_RADIUS; i++) {
     for (let j = -VISIBILITY_RADIUS; j < VISIBILITY_RADIUS; j++) {
       const lat = playerLocation.lat + (i * TILE_DEGREES);
       const lng = playerLocation.lng + (j * TILE_DEGREES);
       if (luck([i, j].toString()) < CACHE_SPAWN_PROBABILITY) {
         const newCell: Cell = { i: lat, j: lng };
-        // console.log("newCell: ", newCell);
-        spawnCollectLocation(newCell);
+        const found = viewMap.find((cell) =>
+          roundNumber(cell.i) === roundNumber(lat) &&
+          roundNumber(cell.j) === roundNumber(lng)
+        );
+        if (found) {
+          spawnCollectLocation(newCell);
+        }
       }
     }
+  }
+  for (const cell of viewMap) {
+    spawnCollectLocation(cell);
   }
 }
 
 generateCaches();
+
+function roundNumber(number: number) {
+  // https://www.geeksforgeeks.org/how-
+  // to-parse-float-with-two-decimal-places-in-javascript/
+  return parseFloat(number.toFixed(4));
+}
 
 // NOTE: in personal code might want to clear out all old caches
 // and then respawn all the ones around where the player is
