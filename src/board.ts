@@ -1,5 +1,5 @@
 import leaflet from "leaflet";
-
+import roundNumber from "./roundNumber.ts";
 interface Cell {
   readonly i: number;
   readonly j: number;
@@ -54,8 +54,8 @@ export class Board {
         for (let j = -radius; j < radius; j++) {
           // visit every cell in radius of the origin cell
           const newPoint = {
-            lat: point.lat + (i * this.tileWidth),
-            lng: point.lng + (j * this.tileWidth),
+            lat: roundNumber(point.lat + (i * this.tileWidth)),
+            lng: roundNumber(point.lng + (j * this.tileWidth)),
           };
           const check = this.getCellForPoint(newPoint);
           if (check) {

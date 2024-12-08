@@ -1,6 +1,6 @@
 // @deno-types="npm:@types/leaflet@^1.9.14"
 import leaflet from "leaflet";
-
+import roundNumber from "./roundNumber.ts";
 // Style sheets
 import "leaflet/dist/leaflet.css";
 import "./style.css";
@@ -15,7 +15,10 @@ import { Board } from "./board.ts";
 
 // Location of our classroom (as identified on Google Maps)
 const OAKES_CLASSROOM = leaflet.latLng(36.98949379578401, -122.06277128548504);
-const playerLocation = OAKES_CLASSROOM;
+const playerLocation: leaflet.LatLng = leaflet.latLng(
+  roundNumber(OAKES_CLASSROOM.lat),
+  roundNumber(OAKES_CLASSROOM.lng),
+);
 // Tunable gameplay parameters
 const GAMEPLAY_ZOOM_LEVEL = 19;
 const TILE_DEGREES = 1e-4;
@@ -73,7 +76,7 @@ class Coin implements Coin {
 //   }
 // }
 
-// const geocacheA = new Geocache();
+// const geocacheA = new Geocache({x: 0, y: 0}, 31);
 // geocacheA.numCoins = 100;
 // const momento = geocacheA.toMomento();
 // const geocacheB = new Geocache();
@@ -168,11 +171,24 @@ statusPanel.addEventListener("player-inventory-changed", () => {
 const selectedCaches: Cache[] = [];
 // const visitedCells: Array<Cell> = [];
 
+function getCoinValues(coin: Coin) {
+  if (coin) {
+    return `${roundNumber(coin.cell.i)}: ${roundNumber(coin.cell.j)}` +
+      ` #${coin.serial}`;
+  } else {
+    return `No more coins left.`;
+  }
+}
+
+const savedRects: Array<leaflet.Rectangle> = [];
+
 function spawnCollectLocation(cell: Cell) {
   // when someone tries to spawn a cell we check if that cell exists
+  // if (cell.)
   const bounds = board.getCellBounds(cell);
   const rect = leaflet.rectangle(bounds);
   rect.addTo(map);
+  savedRects.push(rect);
   // handle interactions with the cache
   rect.bindPopup(() => {
     const coinAmount: number = Math.floor(
@@ -187,12 +203,20 @@ function spawnCollectLocation(cell: Cell) {
         <div>There is a cache here at "${roundNumber(cell.i)},${
       roundNumber(cell.j)
     }". It has value <span id="value">${cache.coins.length}</span>.</div>
-        <button id="collect">collect</button> <button id="deposit">deposit</button>`;
+        <button id="collect">collect</button> <button id="deposit">deposit</button><div>`;
+    const coinDiv = document.createElement("div");
+    coinDiv.innerHTML = `<div> The latest coin here is: </div>
+         <span id="coin">${
+      getCoinValues(cache.coins[cache.coins.length - 1])
+    }</span>`;
+    popupDiv.appendChild(coinDiv);
     popupDiv.addEventListener("cache-updated", () => {
       selectedCaches.pop();
       selectedCaches.push(cache);
       popupDiv.querySelector<HTMLSpanElement>("#value")!.innerHTML = cache.coins
         .length.toString();
+      coinDiv.querySelector<HTMLSpanElement>("#coin")!.innerHTML =
+        getCoinValues(cache.coins[cache.coins.length - 1]);
     });
     // Clicking the button decrements the cache's value and increments the player's points
     popupDiv
@@ -210,7 +234,7 @@ function spawnCollectLocation(cell: Cell) {
       .addEventListener("click", () => {
         const playerCoin = playerCoins.pop();
         if (playerCoin) {
-          const coin = deposit(playerCoin, cell);
+          const coin = deposit(playerCoin, cell, cache);
           cache.coins.push(coin);
           popupDiv.dispatchEvent(cacheUpdated);
         }
@@ -237,54 +261,114 @@ function collect(coin: Coin, cell: Cell) {
   statusPanel.dispatchEvent(inventoryChange);
 }
 
-function deposit(coin: Coin, cell: Cell) {
+function deposit(coin: Coin, cell: Cell, cache: Cache) {
   coin.cell = cell;
+  coin.serial = cache.coins.length;
   statusPanel.dispatchEvent(inventoryChange);
   return coin;
 }
 
 // Look around the player's neighborhood for caches to spawn
 // TODO: refactor
+const spawnedLocations: Cell[] = [];
 
 function generateCaches() {
   // TODO: will now need to move the viewing radius to ensure
   // we have no dupes
   const viewMap = board.getCellsNearPoint(playerLocation);
   console.log("viewmap: ", viewMap);
-  for (let i = -VISIBILITY_RADIUS; i < VISIBILITY_RADIUS; i++) {
-    for (let j = -VISIBILITY_RADIUS; j < VISIBILITY_RADIUS; j++) {
-      const lat = playerLocation.lat + (i * TILE_DEGREES);
-      const lng = playerLocation.lng + (j * TILE_DEGREES);
-      if (luck([i, j].toString()) < CACHE_SPAWN_PROBABILITY) {
-        const newCell: Cell = { i: lat, j: lng };
-        const found = viewMap.find((cell) =>
-          roundNumber(cell.i) === roundNumber(lat) &&
-          roundNumber(cell.j) === roundNumber(lng)
+  // search 8 tiles in vicinity from player location
+  //
+  // viewMap.forEach(cell=> {
+  //   // console.log('typeof cell', cell.j);
+  //   const bounds = board.getCellBounds(cell);
+  //   const rect = leaflet.rectangle(bounds);
+  //   // console.log('typeof cell', rect.addTo);
+  //   rect.addTo(map);
+  // })
+  // savedRects.forEach(rect=> {
+  //   // if savedRects is not included in viewmap
+  //   rect.removeFrom(map);
+  // })
+  // spawnedLocations.forEach((cell) => {
+  //   const exists = viewMap.some((viewCell) =>
+  //     cell.i == viewCell.i && cell.j == viewCell.j
+  //   );
+  //   console.log(cell, exists)
+  //   if (!exists) {
+  //     console.log("doesnt not exist");
+  //     const bounds = board.getCellBounds(cell);
+  //     const rect = leaflet.rectangle(bounds);
+  //     rect.removeFrom(map);
+  //     rect.redraw();
+  //   }
+  // });
+  const prev: Array<Cell> = [...spawnedLocations];
+  console.log(prev);
+  viewMap.forEach((cell) => {
+    if (luck([cell.i, cell.j].toString()) < CACHE_SPAWN_PROBABILITY) {
+      const exists = prev.some((viewCell) =>
+        cell.i == viewCell.i && cell.j == viewCell.j
+      );
+      if (!exists) {
+        spawnCollectLocation(cell);
+        spawnedLocations.push(cell);
+      } else {
+        const exists = spawnedLocations.some((viewCell) =>
+          cell.i == viewCell.i && cell.j == viewCell.j
         );
-        if (found) {
-          spawnCollectLocation(newCell);
-        }
+        console.log(cell, exists);
+        // const index = prev.findIndex((viewCell) =>
+        //   cell.i == viewCell.i && cell.j == viewCell.j
+        // );
+        // prev.splice(index, 1)
+        // console.log(prev[index])
       }
+      // temp.push(cell);
     }
-  }
-  for (const cell of viewMap) {
-    spawnCollectLocation(cell);
-  }
+    // else {
+    //   const bounds = board.getCellBounds(cell);
+    //   const rect = leaflet.rectangle(bounds);
+    //   rect.remove();
+    // }
+  });
+  // prev.forEach((cell) => {
+  //   // const inNew = spawnedLocations.some((viewCell) =>
+  //   //   cell.i == viewCell.i && cell.j == viewCell.j
+  //   // );
+  //   // console.log(cell, inNew)
+  //   // if (!inNew) {
+  //   //   const bounds = board.getCellBounds(cell);
+  //   //   const rect = leaflet.rectangle(bounds);
+  //   //   rect.removeFrom(map);
+  //   //   rect.redraw();
+  //   // }
+  //   const bounds = board.getCellBounds(cell);
+  //   const rect = leaflet.rectangle(bounds);
+  //   rect.removeFrom(map);
+  //   rect.redraw();
+  // });
+  // console.log(prev)
+
+  // for (let i = -VISIBILITY_RADIUS; i < VISIBILITY_RADIUS; i++) {
+  //   for (let j = -VISIBILITY_RADIUS; j < VISIBILITY_RADIUS; j++) {
+  //     const lat = playerLocation.lat + (i * TILE_DEGREES);
+  //     const lng = playerLocation.lng + (j * TILE_DEGREES);
+  //     if (luck([i, j].toString()) < CACHE_SPAWN_PROBABILITY) {
+  //       const newCell: Cell = { i: lat, j: lng };
+  //       const found = viewMap.find((cell) =>
+  //         roundNumber(cell.i) === roundNumber(lat) &&
+  //         roundNumber(cell.j) === roundNumber(lng)
+  //       );
+  //       if (found) {
+  //         spawnCollectLocation(newCell);
+  //       }
+  //     }
+  //   }
+  // }
 }
+
+// function removeCollectLocation(cell: Cell) {
+// }
 
 generateCaches();
-
-function roundNumber(number: number) {
-  // https://www.geeksforgeeks.org/how-
-  // to-parse-float-with-two-decimal-places-in-javascript/
-  return parseFloat(number.toFixed(4));
-}
-
-// NOTE: in personal code might want to clear out all old caches
-// and then respawn all the ones around where the player is
-// -- tell all caches they are about to be destroyed so they can save themselves
-// then figure out where the player is now
-// to figure out where the caches should be near
-// and then rehydrate or bring back to life the caches nearby
-// with any save notes you have on them
-// could be an event listener like in D2
