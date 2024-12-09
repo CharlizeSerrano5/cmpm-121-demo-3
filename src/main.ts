@@ -182,6 +182,27 @@ resetButton?.addEventListener("click", () => {
   restartGame();
 });
 
+let watchID: number;
+let locate: boolean;
+const geoPosition = document.getElementById("sensor");
+geoPosition?.addEventListener("click", () => {
+  // got help for this function
+  console.log("getPosition");
+  if (!locate) {
+    locate = true;
+    navigator.geolocation.getCurrentPosition(obtainPlayerPos);
+  } else {
+    locate = false;
+    navigator.geolocation.clearWatch(watchID);
+  }
+});
+function obtainPlayerPos(position: GeolocationPosition) {
+  setPlayerLocation(position.coords.latitude, position.coords.longitude);
+  watchID = navigator.geolocation.watchPosition((pos) => {
+    setPlayerLocation(pos.coords.latitude, pos.coords.longitude);
+  });
+}
+
 const selectedCaches: Cache[] = [];
 
 function getCoinValues(coin: Coin) {
@@ -309,12 +330,22 @@ function deposit(coin: Coin, cell: Cell, cache: Cache) {
   return coin;
 }
 
+function setPlayerLocation(lat: number, lng: number) {
+  playerLocation = leaflet.latLng(
+    roundNumber(lat),
+    roundNumber(lng),
+  );
+  console.log("new player loc: ", playerLocation);
+  addMarker(playerLocation);
+  map.setView(playerLocation, GAMEPLAY_ZOOM_LEVEL, {
+    animate: true,
+  });
+  generateCaches();
+}
+
 function restartGame() {
   console.log("is being restarted");
-  playerLocation = leaflet.latLng(
-    roundNumber(OAKES_CLASSROOM.lat),
-    roundNumber(OAKES_CLASSROOM.lng),
-  );
+  setPlayerLocation(OAKES_CLASSROOM.lat, OAKES_CLASSROOM.lng);
   console.log("playerloc: ", playerLocation, "originalLoc: ", originalLocation);
   addMarker(playerLocation);
   playerPath.length = 0;
@@ -375,36 +406,36 @@ function generateCaches() {
 
 generateCaches();
 
-function saveGame() {
-  const geoCacheList = Array.from(geoArray.entries());
-  localStorage.setItem("geo", JSON.stringify(geoCacheList));
-  localStorage.setItem("playerCoins", JSON.stringify(playerCoins));
-  localStorage.setItem(
-    "playerLocation",
-    JSON.stringify({
-      i: playerLocation.lat,
-      j: playerLocation.lng,
-    }),
-  );
-  localStorage.setItem("playerPath", JSON.stringify(playerPath));
-}
+// function saveGame() {
+//   const geoCacheList = Array.from(geoArray.entries());
+//   localStorage.setItem("geo", JSON.stringify(geoCacheList));
+//   localStorage.setItem("playerCoins", JSON.stringify(playerCoins));
+//   localStorage.setItem(
+//     "playerLocation",
+//     JSON.stringify({
+//       i: playerLocation.lat,
+//       j: playerLocation.lng,
+//     }),
+//   );
+//   localStorage.setItem("playerPath", JSON.stringify(playerPath));
+// }
 
-function loadGame() {
-  // player storage
-  const storedCoins = JSON.parse(localStorage.getItem("playerCoins")!);
-  storedCoins.forEach((coin: Coin) => {
-    playerCoins.push(coin);
-  });
-  // cache storage
-  const mementoArray: Geocache[] = JSON.parse(localStorage.getItem("geo")!);
-  mementoArray.forEach((cache: Geocache) => {
-    addGeocache(cache.cell, cache.numCoins);
-  });
-  // get the path
-  const newLocation = JSON.parse(localStorage.getItem("playerLocation")!);
-  playerLocation = newLocation;
-  controlPanel.dispatchEvent(locationUpdated);
-  const prevPath = JSON.parse(localStorage.getItem("playerPath")!);
-  playerPath.splice(0, 0, ...playerPath);
-  polyLine.setLatLngs(prevPath);
-}
+// function loadGame() {
+//   // player storage
+//   const storedCoins = JSON.parse(localStorage.getItem("playerCoins")!);
+//   storedCoins.forEach((coin: Coin) => {
+//     playerCoins.push(coin);
+//   });
+//   // cache storage
+//   const mementoArray: Geocache[] = JSON.parse(localStorage.getItem("geo")!);
+//   mementoArray.forEach((cache: Geocache) => {
+//     addGeocache(cache.cell, cache.numCoins);
+//   });
+//   // get the path
+//   const newLocation = JSON.parse(localStorage.getItem("playerLocation")!);
+//   playerLocation = newLocation;
+//   controlPanel.dispatchEvent(locationUpdated);
+//   const prevPath = JSON.parse(localStorage.getItem("playerPath")!);
+//   playerPath.splice(0, 0, ...playerPath);
+//   polyLine.setLatLngs(prevPath);
+// }
