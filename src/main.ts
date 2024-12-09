@@ -20,6 +20,16 @@ const originalLocation: leaflet.LatLng = leaflet.latLng(
   roundNumber(OAKES_CLASSROOM.lng),
 );
 
+globalThis.onload = function () {
+  loadGame();
+};
+
+globalThis.onbeforeunload = function () {
+  saveGame();
+};
+
+setInterval(saveGame, 5000);
+
 let playerLocation: leaflet.LatLng = originalLocation;
 // Tunable gameplay parameters
 const GAMEPLAY_ZOOM_LEVEL = 19;
@@ -130,35 +140,30 @@ const board = new Board(TILE_DEGREES, VISIBILITY_RADIUS);
 // Select control panel
 const controlPanel = document.querySelector<HTMLDivElement>("#controlPanel")!; // element `statusPanel` is defined in index.html
 const locationUpdated = new CustomEvent("location-updated");
+// Brace Recommendation
+function setupMovementButton(
+  buttonId: string,
+  deltaLat: number,
+  deltaLng: number,
+) {
+  controlPanel
+    .querySelector<HTMLButtonElement>(buttonId)!
+    .addEventListener("click", () => {
+      playerLocation.lat += deltaLat * TILE_DEGREES;
+      playerLocation.lng += deltaLng * TILE_DEGREES;
+      controlPanel.dispatchEvent(locationUpdated);
+    });
+}
+setupMovementButton("#north", 1, 0);
+setupMovementButton("#south", -1, 0);
+setupMovementButton("#west", 0, -1);
+setupMovementButton("#east", 0, 1);
 
-controlPanel
-  .querySelector<HTMLButtonElement>("#north")!
-  .addEventListener("click", () => {
-    playerLocation.lat += 1 * TILE_DEGREES;
-    controlPanel.dispatchEvent(locationUpdated);
-  });
-controlPanel
-  .querySelector<HTMLButtonElement>("#south")!
-  .addEventListener("click", () => {
-    playerLocation.lat -= 1 * TILE_DEGREES;
-    controlPanel.dispatchEvent(locationUpdated);
-  });
-controlPanel
-  .querySelector<HTMLButtonElement>("#west")!
-  .addEventListener("click", () => {
-    playerLocation.lng -= 1 * TILE_DEGREES;
-    controlPanel.dispatchEvent(locationUpdated);
-  });
-controlPanel
-  .querySelector<HTMLButtonElement>("#east")!
-  .addEventListener("click", () => {
-    playerLocation.lng += 1 * TILE_DEGREES;
-    controlPanel.dispatchEvent(locationUpdated);
-  });
 controlPanel.addEventListener("location-updated", () => {
   console.log("new player loc:", playerLocation);
   addMarker(playerLocation);
   generateCaches();
+  saveGame();
 });
 
 // Select status panel for playerInventory
@@ -345,18 +350,29 @@ function setPlayerLocation(lat: number, lng: number) {
 
 function restartGame() {
   console.log("is being restarted");
-  setPlayerLocation(OAKES_CLASSROOM.lat, OAKES_CLASSROOM.lng);
-  console.log("playerloc: ", playerLocation, "originalLoc: ", originalLocation);
-  addMarker(playerLocation);
-  playerPath.length = 0;
-  polyLine.setLatLngs(playerPath);
-  controlPanel.dispatchEvent(locationUpdated);
-  localStorage.clear();
-  geoArray.splice(0, geoArray.length);
-  spawnedLocations.splice(0, spawnedLocations.length);
-  playerCoins.splice(0, playerCoins.length);
-  deleteRectCaches();
-  generateCaches();
+
+  const confirmation = prompt(
+    "Are you sure you want to reset the game and erase your progress? (yes/no)",
+  );
+  if (confirmation?.toLowerCase() === "yes") {
+    setPlayerLocation(OAKES_CLASSROOM.lat, OAKES_CLASSROOM.lng);
+    console.log(
+      "playerloc: ",
+      playerLocation,
+      "originalLoc: ",
+      originalLocation,
+    );
+    addMarker(playerLocation);
+    playerPath.length = 0;
+    polyLine.setLatLngs(playerPath);
+    controlPanel.dispatchEvent(locationUpdated);
+    localStorage.clear();
+    geoArray.splice(0, geoArray.length);
+    spawnedLocations.splice(0, spawnedLocations.length);
+    playerCoins.splice(0, playerCoins.length);
+    deleteRectCaches();
+    generateCaches();
+  }
 }
 
 function deleteRectCaches() {
@@ -406,36 +422,40 @@ function generateCaches() {
 
 generateCaches();
 
-// function saveGame() {
-//   const geoCacheList = Array.from(geoArray.entries());
-//   localStorage.setItem("geo", JSON.stringify(geoCacheList));
-//   localStorage.setItem("playerCoins", JSON.stringify(playerCoins));
-//   localStorage.setItem(
-//     "playerLocation",
-//     JSON.stringify({
-//       i: playerLocation.lat,
-//       j: playerLocation.lng,
-//     }),
-//   );
-//   localStorage.setItem("playerPath", JSON.stringify(playerPath));
-// }
+function saveGame() {
+  const geoCacheList = Array.from(geoArray.entries());
+  localStorage.setItem("geo", JSON.stringify(geoCacheList));
+  localStorage.setItem("playerCoins", JSON.stringify(playerCoins));
+  localStorage.setItem(
+    "playerLocation",
+    JSON.stringify({
+      i: playerLocation.lat,
+      j: playerLocation.lng,
+    }),
+  );
+  localStorage.setItem("playerPath", JSON.stringify(playerPath));
+}
 
-// function loadGame() {
-//   // player storage
-//   const storedCoins = JSON.parse(localStorage.getItem("playerCoins")!);
-//   storedCoins.forEach((coin: Coin) => {
-//     playerCoins.push(coin);
-//   });
-//   // cache storage
-//   const mementoArray: Geocache[] = JSON.parse(localStorage.getItem("geo")!);
-//   mementoArray.forEach((cache: Geocache) => {
-//     addGeocache(cache.cell, cache.numCoins);
-//   });
-//   // get the path
-//   const newLocation = JSON.parse(localStorage.getItem("playerLocation")!);
-//   playerLocation = newLocation;
-//   controlPanel.dispatchEvent(locationUpdated);
-//   const prevPath = JSON.parse(localStorage.getItem("playerPath")!);
-//   playerPath.splice(0, 0, ...playerPath);
-//   polyLine.setLatLngs(prevPath);
-// }
+function loadGame() {
+  // player storage
+  const storedCoins = JSON.parse(localStorage.getItem("playerCoins")!);
+  storedCoins.forEach((coin: Coin) => {
+    playerCoins.push(coin);
+  });
+  // cache storage
+  const mementoArray: Geocache[] = JSON.parse(localStorage.getItem("geo")!);
+  mementoArray.forEach((cache: Geocache) => {
+    addGeocache(cache.cell, cache.numCoins);
+  });
+  // get the path
+  const newLocation = JSON.parse(localStorage.getItem("playerLocation")!);
+  // playerLocation = newLocation;
+  console.log("newLoc: ", newLocation);
+  if (newLocation) {
+    setPlayerLocation(newLocation.i, newLocation.j);
+  }
+  controlPanel.dispatchEvent(locationUpdated);
+  const prevPath = JSON.parse(localStorage.getItem("playerPath")!);
+  playerPath.splice(0, 0, ...playerPath);
+  polyLine.setLatLngs(prevPath);
+}
