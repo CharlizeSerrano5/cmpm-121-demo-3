@@ -60,28 +60,31 @@ class Coin implements Coin {
   }
 }
 
-// class Geocache implements Momento<string> {
-//   cell: Cell;
-//   numCoins: number;
-//   constructor(cell: Cell, numCoins: number) {
-//     this.cell = cell;
-//     this.numCoins = numCoins;
-//   }
-//   toMomento() {
-//     return this.numCoins.toString();
-//   }
+class Geocache implements Momento<string> {
+  cell: Cell;
+  numCoins: number;
+  constructor(cell: Cell, numCoins: number) {
+    this.cell = cell;
+    this.numCoins = numCoins;
+  }
+  toMomento() {
+    return this.numCoins.toString();
+  }
 
-//   fromMomento(momento: string) {
-//     this.numCoins = parseInt(momento);
-//   }
-// }
+  fromMomento(momento: string) {
+    this.numCoins = parseInt(momento);
+  }
+}
 
-// const geocacheA = new Geocache({x: 0, y: 0}, 31);
-// geocacheA.numCoins = 100;
-// const momento = geocacheA.toMomento();
-// const geocacheB = new Geocache();
-// geocacheB.fromMomento(momento);
+const geoArray: Array<Geocache> = [];
+
+const geocacheA = new Geocache({ i: 0, j: 0 }, 31);
+geocacheA.numCoins = 100;
+const momento = geocacheA.toMomento();
+const geocacheB = new Geocache({ i: 0, j: 0 }, 44);
+geocacheB.fromMomento(momento);
 // console.assert(geocacheA.numCoins == geocacheB.numCoins);
+console.log("geocache: ", geocacheB.numCoins);
 
 // Create the map (element with id "map" is defined in index.html)
 const map = leaflet.map(document.getElementById("map")!, {
@@ -169,7 +172,6 @@ statusPanel.addEventListener("player-inventory-changed", () => {
 });
 
 const selectedCaches: Cache[] = [];
-// const visitedCells: Array<Cell> = [];
 
 function getCoinValues(coin: Coin) {
   if (coin) {
@@ -217,6 +219,8 @@ function spawnCollectLocation(cell: Cell) {
         .length.toString();
       coinDiv.querySelector<HTMLSpanElement>("#coin")!.innerHTML =
         getCoinValues(cache.coins[cache.coins.length - 1]);
+      removeGeocache(cell);
+      addGeocache(cell, cache.coins.length);
     });
     // Clicking the button decrements the cache's value and increments the player's points
     popupDiv
@@ -247,12 +251,38 @@ board.getCellsNearPoint(playerLocation);
 board.getMap();
 function newCache(cell: Cell, coinAmount: number) {
   const cache: Cache = { coins: [] };
+  const checkGeo = getGeocache(cell);
+  if (checkGeo) {
+    const momento = checkGeo.toMomento();
+    checkGeo.fromMomento(momento);
+    coinAmount = checkGeo.numCoins;
+  } else {
+    addGeocache(cell, coinAmount);
+  }
+  // const geocache: Geocache = new Geocache(cell, coinAmount);
   for (let i = 0; i < coinAmount; i++) {
     const newCoin = new Coin(cell, i);
     // const newCoin: Coin = { cell: cell, serial: i };
     cache.coins.push(newCoin);
   }
+  // changedCaches.push(geocache);
   return cache;
+}
+
+function removeGeocache(cell: Cell) {
+  const index = geoArray.findIndex((geo) => geo.cell === cell);
+  if (index !== -1) {
+    geoArray.splice(index, 1);
+  }
+}
+
+function getGeocache(cell: Cell) {
+  return geoArray.find((cache) => cache.cell === cell);
+}
+
+function addGeocache(cell: Cell, coinAmount: number) {
+  const geocache: Geocache = new Geocache(cell, coinAmount);
+  geoArray.push(geocache);
 }
 
 function collect(coin: Coin, cell: Cell) {
@@ -268,107 +298,42 @@ function deposit(coin: Coin, cell: Cell, cache: Cache) {
   return coin;
 }
 
-// Look around the player's neighborhood for caches to spawn
-// TODO: refactor
-const spawnedLocations: Cell[] = [];
-
+let spawnedLocations: Cell[] = [];
 function generateCaches() {
-  // TODO: will now need to move the viewing radius to ensure
-  // we have no dupes
   const viewMap = board.getCellsNearPoint(playerLocation);
-  console.log("viewmap: ", viewMap);
-  // search 8 tiles in vicinity from player location
-  //
-  // viewMap.forEach(cell=> {
-  //   // console.log('typeof cell', cell.j);
-  //   const bounds = board.getCellBounds(cell);
-  //   const rect = leaflet.rectangle(bounds);
-  //   // console.log('typeof cell', rect.addTo);
-  //   rect.addTo(map);
-  // })
-  // savedRects.forEach(rect=> {
-  //   // if savedRects is not included in viewmap
-  //   rect.removeFrom(map);
-  // })
-  // spawnedLocations.forEach((cell) => {
-  //   const exists = viewMap.some((viewCell) =>
-  //     cell.i == viewCell.i && cell.j == viewCell.j
-  //   );
-  //   console.log(cell, exists)
-  //   if (!exists) {
-  //     console.log("doesnt not exist");
-  //     const bounds = board.getCellBounds(cell);
-  //     const rect = leaflet.rectangle(bounds);
-  //     rect.removeFrom(map);
-  //     rect.redraw();
-  //   }
-  // });
-  const prev: Array<Cell> = [...spawnedLocations];
-  console.log(prev);
-  viewMap.forEach((cell) => {
-    if (luck([cell.i, cell.j].toString()) < CACHE_SPAWN_PROBABILITY) {
-      const exists = prev.some((viewCell) =>
-        cell.i == viewCell.i && cell.j == viewCell.j
+  spawnedLocations = spawnedLocations.filter((knownCell) => {
+    const cellExists = viewMap.some(
+      (cell) => cell.i === knownCell.i && cell.j === knownCell.j,
+    );
+
+    if (!cellExists) {
+      const bounds = board.getCellBounds({ i: knownCell.i, j: knownCell.j });
+      const rectFind = savedRects.find((checkRect) =>
+        checkRect.getBounds().equals(bounds)
       );
-      if (!exists) {
-        spawnCollectLocation(cell);
-        spawnedLocations.push(cell);
-      } else {
-        const exists = spawnedLocations.some((viewCell) =>
-          cell.i == viewCell.i && cell.j == viewCell.j
-        );
-        console.log(cell, exists);
-        // const index = prev.findIndex((viewCell) =>
-        //   cell.i == viewCell.i && cell.j == viewCell.j
-        // );
-        // prev.splice(index, 1)
-        // console.log(prev[index])
+
+      if (rectFind) {
+        console.log("Removing rect for cell:", knownCell);
+        rectFind.removeFrom(map);
+        savedRects.splice(savedRects.indexOf(rectFind), 1);
       }
-      // temp.push(cell);
     }
-    // else {
-    //   const bounds = board.getCellBounds(cell);
-    //   const rect = leaflet.rectangle(bounds);
-    //   rect.remove();
-    // }
+
+    return cellExists;
   });
-  // prev.forEach((cell) => {
-  //   // const inNew = spawnedLocations.some((viewCell) =>
-  //   //   cell.i == viewCell.i && cell.j == viewCell.j
-  //   // );
-  //   // console.log(cell, inNew)
-  //   // if (!inNew) {
-  //   //   const bounds = board.getCellBounds(cell);
-  //   //   const rect = leaflet.rectangle(bounds);
-  //   //   rect.removeFrom(map);
-  //   //   rect.redraw();
-  //   // }
-  //   const bounds = board.getCellBounds(cell);
-  //   const rect = leaflet.rectangle(bounds);
-  //   rect.removeFrom(map);
-  //   rect.redraw();
-  // });
-  // console.log(prev)
 
-  // for (let i = -VISIBILITY_RADIUS; i < VISIBILITY_RADIUS; i++) {
-  //   for (let j = -VISIBILITY_RADIUS; j < VISIBILITY_RADIUS; j++) {
-  //     const lat = playerLocation.lat + (i * TILE_DEGREES);
-  //     const lng = playerLocation.lng + (j * TILE_DEGREES);
-  //     if (luck([i, j].toString()) < CACHE_SPAWN_PROBABILITY) {
-  //       const newCell: Cell = { i: lat, j: lng };
-  //       const found = viewMap.find((cell) =>
-  //         roundNumber(cell.i) === roundNumber(lat) &&
-  //         roundNumber(cell.j) === roundNumber(lng)
-  //       );
-  //       if (found) {
-  //         spawnCollectLocation(newCell);
-  //       }
-  //     }
-  //   }
-  // }
+  viewMap.forEach((cell) => {
+    const cellExists = spawnedLocations.some(
+      (spawnedCell) => cell.i === spawnedCell.i && cell.j === spawnedCell.j,
+    );
+
+    if (
+      !cellExists && luck([cell.i, cell.j].toString()) < CACHE_SPAWN_PROBABILITY
+    ) {
+      spawnCollectLocation(cell);
+      spawnedLocations.push(cell);
+    }
+  });
 }
-
-// function removeCollectLocation(cell: Cell) {
-// }
 
 generateCaches();
