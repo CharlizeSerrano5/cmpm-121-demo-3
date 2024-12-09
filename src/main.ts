@@ -15,10 +15,12 @@ import { Board } from "./board.ts";
 
 // Location of our classroom (as identified on Google Maps)
 const OAKES_CLASSROOM = leaflet.latLng(36.98949379578401, -122.06277128548504);
-const playerLocation: leaflet.LatLng = leaflet.latLng(
+const originalLocation: leaflet.LatLng = leaflet.latLng(
   roundNumber(OAKES_CLASSROOM.lat),
   roundNumber(OAKES_CLASSROOM.lng),
 );
+
+let playerLocation: leaflet.LatLng = originalLocation;
 // Tunable gameplay parameters
 const GAMEPLAY_ZOOM_LEVEL = 19;
 const TILE_DEGREES = 1e-4;
@@ -96,6 +98,9 @@ const map = leaflet.map(document.getElementById("map")!, {
   scrollWheelZoom: false,
 });
 
+const playerPath: leaflet.LatLng[] = [];
+const polyLine = leaflet.polyline(playerPath).addTo(map);
+
 // Populate the map with a background tile layer
 leaflet
   .tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -151,6 +156,7 @@ controlPanel
     controlPanel.dispatchEvent(locationUpdated);
   });
 controlPanel.addEventListener("location-updated", () => {
+  console.log("new player loc:", playerLocation);
   addMarker(playerLocation);
   generateCaches();
 });
@@ -169,6 +175,11 @@ statusPanel.addEventListener("player-inventory-changed", () => {
   // when called change the status panel
   statusPanel.innerHTML = `${playerCoins.length} points accumulated`;
   console.log("player inventory: ", playerCoins);
+});
+
+const resetButton = document.getElementById("reset");
+resetButton?.addEventListener("click", () => {
+  restartGame();
 });
 
 const selectedCaches: Cache[] = [];
@@ -298,6 +309,33 @@ function deposit(coin: Coin, cell: Cell, cache: Cache) {
   return coin;
 }
 
+function restartGame() {
+  console.log("is being restarted");
+  playerLocation = leaflet.latLng(
+    roundNumber(OAKES_CLASSROOM.lat),
+    roundNumber(OAKES_CLASSROOM.lng),
+  );
+  console.log("playerloc: ", playerLocation, "originalLoc: ", originalLocation);
+  addMarker(playerLocation);
+  playerPath.length = 0;
+  polyLine.setLatLngs(playerPath);
+  controlPanel.dispatchEvent(locationUpdated);
+  localStorage.clear();
+  geoArray.splice(0, geoArray.length);
+  spawnedLocations.splice(0, spawnedLocations.length);
+  playerCoins.splice(0, playerCoins.length);
+  deleteRectCaches();
+  generateCaches();
+}
+
+function deleteRectCaches() {
+  map.eachLayer((layer) => {
+    if (!(layer instanceof leaflet.TileLayer || layer === playerMarker)) {
+      layer.removeFrom(map);
+    }
+  });
+}
+
 let spawnedLocations: Cell[] = [];
 function generateCaches() {
   const viewMap = board.getCellsNearPoint(playerLocation);
@@ -313,7 +351,6 @@ function generateCaches() {
       );
 
       if (rectFind) {
-        console.log("Removing rect for cell:", knownCell);
         rectFind.removeFrom(map);
         savedRects.splice(savedRects.indexOf(rectFind), 1);
       }
@@ -337,3 +374,37 @@ function generateCaches() {
 }
 
 generateCaches();
+
+function saveGame() {
+  const geoCacheList = Array.from(geoArray.entries());
+  localStorage.setItem("geo", JSON.stringify(geoCacheList));
+  localStorage.setItem("playerCoins", JSON.stringify(playerCoins));
+  localStorage.setItem(
+    "playerLocation",
+    JSON.stringify({
+      i: playerLocation.lat,
+      j: playerLocation.lng,
+    }),
+  );
+  localStorage.setItem("playerPath", JSON.stringify(playerPath));
+}
+
+function loadGame() {
+  // player storage
+  const storedCoins = JSON.parse(localStorage.getItem("playerCoins")!);
+  storedCoins.forEach((coin: Coin) => {
+    playerCoins.push(coin);
+  });
+  // cache storage
+  const mementoArray: Geocache[] = JSON.parse(localStorage.getItem("geo")!);
+  mementoArray.forEach((cache: Geocache) => {
+    addGeocache(cache.cell, cache.numCoins);
+  });
+  // get the path
+  const newLocation = JSON.parse(localStorage.getItem("playerLocation")!);
+  playerLocation = newLocation;
+  controlPanel.dispatchEvent(locationUpdated);
+  const prevPath = JSON.parse(localStorage.getItem("playerPath")!);
+  playerPath.splice(0, 0, ...playerPath);
+  polyLine.setLatLngs(prevPath);
+}

@@ -19,9 +19,8 @@ export class Board {
   private getCanonicalCell(cell: Cell): Cell {
     const { i, j } = cell;
     const key = [i, j].toString();
-    const checkCell = this.knownCells.get(key);
-    console.log("knowncells: ", this.knownCells);
-    console.log("check: ", checkCell);
+    // console.log("knowncells: ", this.knownCells);
+    // console.log("check: ", checkCell);
     if (!this.knownCells.has(key)) {
       this.knownCells.set(key, cell);
     }
